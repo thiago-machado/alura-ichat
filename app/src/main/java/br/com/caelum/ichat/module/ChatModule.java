@@ -1,5 +1,10 @@
 package br.com.caelum.ichat.module;
 
+import android.app.Application;
+import android.content.Context;
+
+import com.squareup.picasso.Picasso;
+
 import br.com.caelum.ichat.service.ChatService;
 import dagger.Module;
 import dagger.Provides;
@@ -16,6 +21,12 @@ import retrofit2.converter.gson.GsonConverterFactory;
 @Module
 public class ChatModule {
 
+    private final Context context;
+
+    public ChatModule(Context context) {
+        this.context = context;
+    }
+
     /**
      * Provedor de dependências
      *
@@ -28,5 +39,10 @@ public class ChatModule {
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         return retrofit.create(ChatService.class);
+    }
+
+    @Provides
+    public Picasso getPicasso() {
+        return new Picasso.Builder(context).build();
     }
 }

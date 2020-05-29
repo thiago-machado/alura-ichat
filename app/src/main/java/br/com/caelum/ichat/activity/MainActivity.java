@@ -5,15 +5,21 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 
+import com.squareup.picasso.Picasso;
+
 import br.com.caelum.ichat.app.ChatApplication;
-import br.com.caelum.ichat.ChatComponent;
+import br.com.caelum.ichat.component.ChatComponent;
 import br.com.caelum.ichat.adapter.MensagemAdapter;
 import br.com.caelum.ichat.callback.EnviarMensagemCallback;
 import br.com.caelum.ichat.callback.OuvirMensagensCallback;
 import br.com.caelum.ichat.modelo.Mensagem;
 import br.com.caelum.ichat.service.ChatService;
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
 import caelum.com.br.ichat_alura.R;
 import retrofit2.Call;
 
@@ -26,7 +32,26 @@ public class MainActivity extends AppCompatActivity {
 
     private int idDoCliente = 1;
     private List<Mensagem> mensagens = new ArrayList<>();
-    private ListView listaDeMensagens;
+
+    /**
+     * As Views estão sendo injetadas via ButterKnife.
+     * Os atributos não podem ser private.
+     *
+     * Observar que até mesmo o clique do botão pode ser
+     * realizado via ButterKnife.
+     */
+    @BindView(R.id.activity_botao_enviar)
+    Button botaoEnviar;
+
+    @BindView(R.id.activity_mensagem_enviar)
+    EditText mensagemParaEnviar;
+
+    @BindView(R.id.mensagem)
+    ListView listaDeMensagens;
+
+    @BindView(R.id.iv_avatar_usuario)
+    ImageView avatar;
+
     private ChatComponent chatComponent;
 
     /**
@@ -49,35 +74,52 @@ public class MainActivity extends AppCompatActivity {
     @Inject
     ChatService chatService;
 
+    @Inject
+    Picasso picasso;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        /**
+         * ButterKnife é uma biblioteca que permite termos acesso as Views de um layout
+         * através da injeção de dependências. Basta observarmos os atributos que estão
+         * nessa classe.
+         *
+         * IMPORTANTE: ButterKnife é uma bibloteca DEPRECIADA.
+         * NO site oficial, estão pedindo para utilizar o View Binding:
+         * https://developer.android.com/topic/libraries/view-binding
+         */
+        ButterKnife.bind(this);
+
+        /**
+         * Utilizando o Picasso para criar uma Avatar e inserir no ImageView
+         */
+        picasso.with(this).load("https://api.adorable.io/avatars/285/" + idDoCliente + ".png").into(avatar);
 
         ChatApplication chatApplication = (ChatApplication) getApplication();
         chatComponent = chatApplication.getComponent();
         chatComponent.inject(this); // Acionando o Dagger que permitirá a Injeção de dependência de ChatService
-
-
-        listaDeMensagens = findViewById(R.id.mensagem);
 
         mensagens = new ArrayList<>();
 
         MensagemAdapter adapter = new MensagemAdapter(idDoCliente, mensagens, this);
         listaDeMensagens.setAdapter(adapter);
 
-        Button botaoEnviar = findViewById(R.id.activity_botao_enviar);
-        EditText mensagemParaEnviar = findViewById(R.id.activity_mensagem_enviar);
-
         ouvirMensagem();
-
-        botaoEnviar.setOnClickListener((view) -> {
-            Call<Void> postCall = chatService.enviar(new Mensagem(idDoCliente, mensagemParaEnviar.getText().toString()));
-            postCall.enqueue(new EnviarMensagemCallback());
-        });
     }
 
+    /**
+     * Clique do botão sendo injetado via ButterKnife.
+     *
+     */
+    @OnClick(R.id.activity_botao_enviar)
+    public void enviarMensagem() {
+        Call<Void> postCall = chatService.enviar(new Mensagem(idDoCliente, mensagemParaEnviar.getText().toString()));
+        postCall.enqueue(new EnviarMensagemCallback());
+        mensagemParaEnviar.setText(null);
+    }
     public void colocaNaLista(Mensagem mensagem) {
         mensagens.add(mensagem);
         MensagemAdapter adapter = new MensagemAdapter(idDoCliente, mensagens, this);

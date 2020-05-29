@@ -2,8 +2,9 @@ package br.com.caelum.ichat.app;
 
 import android.app.Application;
 
-import br.com.caelum.ichat.ChatComponent;
-import br.com.caelum.ichat.DaggerChatComponent;
+import br.com.caelum.ichat.component.ChatComponent;
+import br.com.caelum.ichat.component.DaggerChatComponent;
+import br.com.caelum.ichat.module.ChatModule;
 
 /**
  * Nós usamos uma instância dessa classe em MainActivity.
@@ -29,7 +30,10 @@ public class ChatApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        chatComponent = DaggerChatComponent.builder().build();
+        chatComponent = DaggerChatComponent
+                .builder()
+                .chatModule(new ChatModule(this)) // Criando um ChatModule personalizado que recebe um Conext no construtor
+                .build();
     }
 
     /**
