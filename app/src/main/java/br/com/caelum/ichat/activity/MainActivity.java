@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -15,11 +16,16 @@ import android.widget.ListView;
 
 import com.squareup.picasso.Picasso;
 
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+
 import br.com.caelum.ichat.app.ChatApplication;
 import br.com.caelum.ichat.component.ChatComponent;
 import br.com.caelum.ichat.adapter.MensagemAdapter;
 import br.com.caelum.ichat.callback.EnviarMensagemCallback;
 import br.com.caelum.ichat.callback.OuvirMensagensCallback;
+import br.com.caelum.ichat.event.FailureEvent;
+import br.com.caelum.ichat.event.MensagemEvent;
 import br.com.caelum.ichat.modelo.Mensagem;
 import br.com.caelum.ichat.service.ChatService;
 import butterknife.BindView;
@@ -82,7 +88,8 @@ public class MainActivity extends AppCompatActivity {
     @Inject
     Picasso picasso;
 
-    private BroadcastReceiver broadcastReceiver;
+    @Inject
+    EventBus eventBus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -114,32 +121,9 @@ public class MainActivity extends AppCompatActivity {
         MensagemAdapter adapter = new MensagemAdapter(idDoCliente, mensagens, this);
         listaDeMensagens.setAdapter(adapter);
 
-        ouvirMensagem();
+        ouvirMensagem(null);
 
-        /*
-        Criando um LocalBroadcastManager, que receberá as requisições enviadas de um
-        LocalBroadcastManager (ver classe OuvirMensagensCallback).
-
-        LocalBroadcastManager exige a criação de um BroadcastReceiver.
-         */
-        criarBroadcastReceiver();
-
-        LocalBroadcastManager localBroadcastManager = LocalBroadcastManager.getInstance(this);
-        localBroadcastManager.registerReceiver(broadcastReceiver, new IntentFilter(OuvirMensagensCallback.CHAVE_NOVA_MENSAGEM));
-    }
-
-    /**
-     *
-     */
-    private void criarBroadcastReceiver() {
-
-        broadcastReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                Mensagem mensagem = (Mensagem) intent.getSerializableExtra(OuvirMensagensCallback.TAG_OBJ_MENSAGEM);
-                colocaNaLista(mensagem);
-            }
-        };
+        eventBus.register(this);
     }
 
     /**
@@ -155,35 +139,37 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      *
-     * @param mensagem
+     * @param mensagemEvent
      */
-    public void colocaNaLista(Mensagem mensagem) {
-        mensagens.add(mensagem);
+    @Subscribe
+    public void colocaNaLista(MensagemEvent mensagemEvent) {
+        mensagens.add(mensagemEvent.mensagem);
         MensagemAdapter adapter = new MensagemAdapter(idDoCliente, mensagens, this);
         listaDeMensagens.setAdapter(adapter);
-        ouvirMensagem();
     }
 
     /**
      *
      */
-    public void ouvirMensagem() {
+    @Subscribe
+    public void ouvirMensagem(MensagemEvent mensagemEvent) {
         Call<Mensagem> getCall = chatService.ouvirMensagens();
-        getCall.enqueue(new OuvirMensagensCallback(this));
+        getCall.enqueue(new OuvirMensagensCallback(eventBus, this));
     }
 
     /**
-     * Caso a Activity seja recriada (ao virar a tela, por exemplo), precisamos evitar que
-     * o LocalBroadcastManager tenha mais de uma insância. Para isso, vamos remover o registro
-     * do LocalBroadcastManager criado anteriormente, para que um novo seja criado ao passar por
-     * onCreate.
-     *
+     * Em caso de falha na comunicação com o servidor, esse evento será chamado.
+     * @param event
      */
+    @Subscribe
+    public void tratandoProblemaConexaoServidor(FailureEvent event) {
+        Log.e("server_error", event.throwable.getMessage(), event.throwable);
+        ouvirMensagem(null);
+    }
+
     @Override
     protected void onStop() {
         super.onStop();
-
-        LocalBroadcastManager localBroadcastManager = LocalBroadcastManager.getInstance(this);
-        localBroadcastManager.unregisterReceiver(broadcastReceiver);
+        eventBus.unregister(this);
     }
 }
