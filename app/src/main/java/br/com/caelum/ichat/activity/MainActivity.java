@@ -1,7 +1,12 @@
 package br.com.caelum.ichat.activity;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
@@ -77,6 +82,8 @@ public class MainActivity extends AppCompatActivity {
     @Inject
     Picasso picasso;
 
+    private BroadcastReceiver broadcastReceiver;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -108,6 +115,31 @@ public class MainActivity extends AppCompatActivity {
         listaDeMensagens.setAdapter(adapter);
 
         ouvirMensagem();
+
+        /*
+        Criando um LocalBroadcastManager, que receberá as requisições enviadas de um
+        LocalBroadcastManager (ver classe OuvirMensagensCallback).
+
+        LocalBroadcastManager exige a criação de um BroadcastReceiver.
+         */
+        criarBroadcastReceiver();
+
+        LocalBroadcastManager localBroadcastManager = LocalBroadcastManager.getInstance(this);
+        localBroadcastManager.registerReceiver(broadcastReceiver, new IntentFilter(OuvirMensagensCallback.CHAVE_NOVA_MENSAGEM));
+    }
+
+    /**
+     *
+     */
+    private void criarBroadcastReceiver() {
+
+        broadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Mensagem mensagem = (Mensagem) intent.getSerializableExtra(OuvirMensagensCallback.TAG_OBJ_MENSAGEM);
+                colocaNaLista(mensagem);
+            }
+        };
     }
 
     /**
@@ -120,6 +152,11 @@ public class MainActivity extends AppCompatActivity {
         postCall.enqueue(new EnviarMensagemCallback());
         mensagemParaEnviar.setText(null);
     }
+
+    /**
+     *
+     * @param mensagem
+     */
     public void colocaNaLista(Mensagem mensagem) {
         mensagens.add(mensagem);
         MensagemAdapter adapter = new MensagemAdapter(idDoCliente, mensagens, this);
@@ -127,8 +164,26 @@ public class MainActivity extends AppCompatActivity {
         ouvirMensagem();
     }
 
+    /**
+     *
+     */
     public void ouvirMensagem() {
         Call<Mensagem> getCall = chatService.ouvirMensagens();
         getCall.enqueue(new OuvirMensagensCallback(this));
+    }
+
+    /**
+     * Caso a Activity seja recriada (ao virar a tela, por exemplo), precisamos evitar que
+     * o LocalBroadcastManager tenha mais de uma insância. Para isso, vamos remover o registro
+     * do LocalBroadcastManager criado anteriormente, para que um novo seja criado ao passar por
+     * onCreate.
+     *
+     */
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        LocalBroadcastManager localBroadcastManager = LocalBroadcastManager.getInstance(this);
+        localBroadcastManager.unregisterReceiver(broadcastReceiver);
     }
 }
